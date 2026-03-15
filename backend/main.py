@@ -21,10 +21,11 @@ from auth import (
 )
 
 ROOT_DIR=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH=os.path.join(ROOT_DIR,"model.h5")
-CLASSES_PATH=os.path.join(ROOT_DIR,"classes.json")
-HISTORY_PATH=os.path.join(ROOT_DIR,"training_history.json")
-STATS_PATH=os.path.join(ROOT_DIR,"stats.json")
+ARTIFACTS_DIR=os.path.join(ROOT_DIR,"artifacts")
+MODEL_PATH=os.path.join(ARTIFACTS_DIR,"model.h5")
+CLASSES_PATH=os.path.join(ARTIFACTS_DIR,"classes.json")
+HISTORY_PATH=os.path.join(ARTIFACTS_DIR,"training_history.json")
+STATS_PATH=os.path.join(ARTIFACTS_DIR,"stats.json")
 
 HEX_PREFIX_RE=re.compile(r'^[0-9a-fA-F]{32}')
 
@@ -241,18 +242,50 @@ def _clean_label(raw) -> str:
     return s.strip().lower()
 
 
-def _audio_to_mfcc(audio_data: np.ndarray,sr: int=22050,n_mfcc: int=40) -> np.ndarray:
+def _clean_audio(audio_data: np.ndarray,sr: int=22050) -> np.ndarray:
+    audio=np.array(audio_data,dtype=np.float32).squeeze().flatten()
+    audio=audio-np.mean(audio)
+    mx=np.max(np.abs(audio))
+    if mx>0:
+        audio=audio/mx
+    stft=librosa.stft(audio)
+    mag=np.abs(stft)
+    phase=np.angle(stft)
+    frame_energy=np.sum(mag**2,axis=0)
+    n_quiet=max(1,int(len(frame_energy)*0.10))
+    quiet_idx=np.argsort(frame_energy)[:n_quiet]
+    noise_est=np.mean(mag[:,quiet_idx],axis=1)
+    clean_mag=np.maximum(mag-noise_est[:,np.newaxis],0.0)
+    audio=librosa.istft(clean_mag*np.exp(1j*phase),length=len(audio))
+    trimmed,_=librosa.effects.trim(audio,top_db=30)
+    if len(trimmed)>int(sr*0.1):
+        audio=trimmed
+    mx=np.max(np.abs(audio))
+    if mx>0:
+        audio=audio/mx
+    return audio
+
+
+def _audio_to_features(audio_data: np.ndarray,sr: int=22050,n_mfcc: int=40) -> np.ndarray:
     try:
-        audio=np.array(audio_data,dtype=np.float32).squeeze()
-        if audio.ndim!=1:
-            audio=audio.flatten()
-        max_val=np.max(np.abs(audio))
-        if max_val>0:
-            audio=audio/max_val
-        mfccs=librosa.feature.mfcc(y=audio,sr=sr,n_mfcc=n_mfcc)
-        return np.mean(mfccs.T,axis=0)
+        audio=_clean_audio(audio_data,sr)
+        min_len=int(sr*0.5)
+        if len(audio)<min_len:
+            audio=np.pad(audio,(0,min_len-len(audio)))
+        mfcc=librosa.feature.mfcc(y=audio,sr=sr,n_mfcc=n_mfcc)
+        n_frames=mfcc.shape[1]
+        w=min(9,n_frames if n_frames%2==1 else n_frames-1)
+        w=max(w,3)
+        delta=librosa.feature.delta(mfcc,width=w)
+        delta2=librosa.feature.delta(mfcc,order=2,width=w)
+        return np.concatenate([
+            np.mean(mfcc.T,axis=0),
+            np.std(mfcc.T,axis=0),
+            np.mean(delta.T,axis=0),
+            np.mean(delta2.T,axis=0),
+        ])
     except Exception:
-        return np.zeros(n_mfcc)
+        return np.zeros(n_mfcc*4)
 
 
 @app.post("/api/predict",response_model=PredictionResponse)
@@ -294,7 +327,7 @@ async def predict(
         raise
     except Exception as e:
         raise HTTPException(status_code=400,detail=f"Cannot read .npz file: {e}")
-    X_features=np.array([_audio_to_mfcc(a) for a in X_raw],dtype=np.float32)
+    X_features=np.array([_audio_to_features(a) for a in X_raw],dtype=np.float32)
     proba=model.predict(X_features,verbose=0)
     pred_indices=np.argmax(proba,axis=1)
     confidences=np.max(proba,axis=1)

@@ -1,0 +1,33 @@
+{
+  "train_distribution": {
+    "55_cancri_bc": 98,
+    "gliese_": 85,
+    "gliese_12_b": 91,
+    "gliese_163_c": 90,
+    "hd_20794_d": 80,
+    "hd_216520_c": 76,
+    "hip_38594_b": 73,
+    "k2-155d": 74,
+    "k2-288bb": 93,
+    "k2-332b": 81,
+    "k2-72e": 74,
+    "kepler-155c": 76,
+    "kepler-174d": 77,
+    "kepler-186f": 83,
+    "kepler-22b": 64,
+    "kepler-283c": 72,
+    "kepler-296e": 67,
+    "kepler-296f": 74,
+    "kepler-62e": 75,
+    "kepler-62f": 97
+  },
+  "valid_top5": {
+    "55_cancri_bc": 98,
+    "kepler-62f": 97,
+    "k2-288bb": 93,
+    "gliese_12_b": 91,
+    "gliese_163_c": 90
+  },
+  "total_train": 1600,
+  "n_classes": 20
+}

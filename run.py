@@ -195,6 +195,19 @@ def cleanup(signum=None, frame=None):
     sys.exit(0)
 
 
+def run_unit_tests():
+    log(BLUE, "TEST", "Запуск unit-тестов...")
+    result = subprocess.run(
+        [PYTHON, "-m", "pytest", "test_basic.py", "-v", "-q"],
+        cwd=str(BACKEND_DIR),
+        env={**os.environ, "PYTHONPATH": str(BACKEND_DIR)},
+    )
+    if result.returncode != 0:
+        log(RED, "TEST", "Тесты провалились!")
+        sys.exit(1)
+    log(GREEN, "TEST", "Все тесты пройдены")
+
+
 def check_supabase_setup():
     env_file = BACKEND_DIR / ".env"
     if not env_file.exists():
@@ -215,6 +228,7 @@ def main():
         sys.exit(1)
     check_supabase_setup()
     install_backend_deps()
+    run_unit_tests()
     install_frontend_deps()
     signal.signal(signal.SIGINT, cleanup)
     if IS_WINDOWS:
