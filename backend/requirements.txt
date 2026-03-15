@@ -1,0 +1,28 @@
+# FastAPI & server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Supabase
+supabase>=2.0.0
+
+# Authentication — ВАЖНО: python-jose, НЕ jose!
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1  # ВАЖНО: версия 4.1+ несовместима с passlib!
+
+# Data validation
+pydantic>=2.0.0
+
+# ML (для predict endpoint)
+numpy>=1.24.0
+librosa>=0.10.0
+scikit-learn>=1.3.0
+# tensorflow устанавливается отдельно (уже есть 2.21.0)
+
+# Environment
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.4.0
+httpx>=0.25.0
